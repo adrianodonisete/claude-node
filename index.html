@@ -1,0 +1,628 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IBov Analyser</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+            background: #0f1923;
+            color: #e0e0e0;
+            min-height: 100vh;
+        }
+
+        .menu {
+            background: #0d1b2a;
+            padding: 10px 24px;
+            display: flex;
+            gap: 20px;
+            border-bottom: 1px solid #1e3a5f;
+        }
+
+        .menu-link {
+            color: #4fc3f7;
+            text-decoration: none;
+            font-size: 14px;
+            font-weight: 500;
+            transition: color 0.2s;
+        }
+
+        .menu-link:hover {
+            color: #81d4fa;
+            text-decoration: underline;
+        }
+
+        header {
+            background: #152232;
+            padding: 16px 24px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            border-bottom: 1px solid #1e3a5f;
+            flex-wrap: wrap;
+            gap: 12px;
+        }
+
+        header h1 {
+            font-size: 22px;
+            font-weight: 600;
+            color: #ffffff;
+        }
+
+        header h1 span { color: #4fc3f7; }
+
+        #refresh-btn {
+            padding: 8px 18px;
+            background: #1565c0;
+            color: #fff;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            transition: background 0.2s;
+        }
+
+        #refresh-btn:hover { background: #0d47a1; }
+        #refresh-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .kpi-bar {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+
+        .kpi-card {
+            background: #152232;
+            border: 1px solid #1e3a5f;
+            border-radius: 8px;
+            padding: 14px 18px;
+            text-align: center;
+        }
+
+        .kpi-card .ticker {
+            font-size: 13px;
+            font-weight: 600;
+            margin-bottom: 6px;
+        }
+
+        .kpi-card .price {
+            font-size: 28px;
+            font-weight: 700;
+        }
+
+        .kpi-card .change {
+            font-size: 14px;
+            margin-top: 4px;
+            font-weight: 600;
+        }
+
+        .change.positive { color: #4caf50; }
+        .change.negative { color: #f44336; }
+
+        .section-title {
+            font-size: 16px;
+            font-weight: 600;
+            margin: 24px 0 12px;
+            padding-left: 6px;
+            border-left: 3px solid #4fc3f7;
+        }
+
+        .chart-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+            gap: 16px;
+            margin-bottom: 16px;
+        }
+
+        .chart-card {
+            background: #152232;
+            border: 1px solid #1e3a5f;
+            border-radius: 8px;
+            padding: 16px;
+            min-width: 0;
+        }
+
+        .chart-card canvas {
+            max-height: 280px;
+        }
+
+        .chart-card.full {
+            grid-column: 1 / -1;
+        }
+
+        .kpi-detail {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+            gap: 8px;
+            margin-top: 10px;
+            font-size: 13px;
+        }
+
+        .kpi-item { display: flex; justify-content: space-between; padding: 4px 0; }
+
+        .kpi-label { color: #8899aa; }
+        .kpi-value { font-weight: 600; }
+
+        #status-bar {
+            text-align: center;
+            padding: 8px;
+            font-size: 13px;
+            color: #8899aa;
+        }
+
+        #status-bar.loading { color: #4fc3f7; }
+        #status-bar.error { color: #f44336; }
+        #status-bar.success { color: #4caf50; }
+
+        @media (max-width: 600px) {
+            .chart-grid { grid-template-columns: 1fr; }
+            header { padding: 12px 14px; }
+            header h1 { font-size: 18px; }
+        }
+    </style>
+</head>
+<body>
+
+<nav class="menu">
+    <a href="/" class="menu-link">Home</a>
+    <a href="/indices" class="menu-link">Índices</a>
+    <a href="https://finance.yahoo.com" target="_blank" class="menu-link">Yahoo Finance</a>
+</nav>
+
+<header>
+    <h1><span>IBov</span> Analyser &mdash; 2025</h1>
+    <button id="refresh-btn">Atualizar dados</button>
+</header>
+
+<div id="status-bar">Carregando dados...</div>
+
+<div class="container">
+    <!-- KPI summary cards -->
+    <div class="kpi-bar" id="kpi-bar"></div>
+
+    <!-- Individual stock charts -->
+    <div class="section-title">Análise Individual</div>
+    <div class="chart-grid" id="stock-charts"></div>
+
+    <!-- Performance comparison -->
+    <div class="section-title">Performance Comparada (% do ano)</div>
+    <div class="chart-grid">
+        <div class="chart-card full">
+            <canvas id="comparison-chart"></canvas>
+        </div>
+    </div>
+</div>
+
+<script>
+const TICKERS = ['petr3', 'itub3', 'vale3'];
+const COLORS = {
+    petr3: { line: '#2ecc71', bg: 'rgba(46,204,113,0.15)' },
+    itub3: { line: '#3498db', bg: 'rgba(52,152,219,0.15)' },
+    vale3: { line: '#e74c3c', bg: 'rgba(231,76,60,0.15)' },
+};
+const NAMES = { petr3: 'PETR3', itub3: 'ITUB3', vale3: 'VALE3' };
+
+let stockData = {};
+let charts = {};
+
+const statusBar = document.getElementById('status-bar');
+
+function setStatus(msg, type = '') {
+    statusBar.textContent = msg;
+    statusBar.className = type;
+}
+
+function calcKPI(data) {
+    const closes = data.map(d => d.close);
+    const first = closes[0];
+    const last = closes[closes.length - 1];
+    const changePct = ((last - first) / first) * 100;
+    const max = Math.max(...closes);
+    const min = Math.min(...closes);
+    const avg = closes.reduce((a, b) => a + b, 0) / closes.length;
+    const meanReturn = closes.slice(1).reduce((acc, c, i) => {
+        const p = closes[i];
+        return acc + Math.log(c / p);
+    }, 0) / (closes.length - 1);
+    const vol = closes.slice(1).reduce((acc, c, i) => {
+        const r = Math.log(c / closes[i]) - meanReturn;
+        return acc + r * r;
+    }, 0) / (closes.length - 1);
+    const stddev = Math.sqrt(vol);
+
+    return { first, last, changePct, max, min, avg, stddev: stddev * 100 };
+}
+
+function formatBRL(n) {
+    return `R$ ${n.toFixed(2).replace('.', ',')}`;
+}
+
+function renderKPICards() {
+    const bar = document.getElementById('kpi-bar');
+    bar.innerHTML = '';
+    TICKERS.forEach(t => {
+        if (!stockData[t]?.length) return;
+        const kpi = calcKPI(stockData[t]);
+        const card = document.createElement('div');
+        card.className = 'kpi-card';
+        const sign = kpi.changePct >= 0 ? '+' : '';
+        card.innerHTML = `
+            <div class="ticker" style="color:${COLORS[t].line}">${NAMES[t]}</div>
+            <div class="price">${formatBRL(kpi.last)}</div>
+            <div class="change ${kpi.changePct >= 0 ? 'positive' : 'negative'}">${sign}${kpi.changePct.toFixed(2)}% no ano</div>
+        `;
+        bar.appendChild(card);
+    });
+}
+
+function renderStockChart(ticker) {
+    const data = stockData[ticker];
+    if (!data?.length) return;
+
+    // Create card
+    const container = document.getElementById('stock-charts');
+    const div = document.createElement('div');
+    div.className = 'chart-card';
+    div.innerHTML = `<canvas id="${ticker}-chart"></canvas>`;
+    container.appendChild(div);
+
+    const closes = data.map(d => d.close);
+    const labels = data.map(d => d.date);
+    const kpi = calcKPI(data);
+    const sign = kpi.changePct >= 0 ? '+' : '';
+
+    const ctx = document.getElementById(`${ticker}-chart`).getContext('2d');
+    charts[`${ticker}-individual`] = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels,
+            datasets: [{
+                label: `${NAMES[ticker]} — Fechamento`,
+                data: closes,
+                borderColor: COLORS[ticker].line,
+                backgroundColor: COLORS[ticker].bg,
+                borderWidth: 2,
+                pointRadius: 0,
+                pointHoverRadius: 4,
+                fill: true,
+                tension: 0.1,
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: {
+                legend: { labels: { color: '#ccc', font: { size: 12 } } },
+                tooltip: {
+                    callbacks: {
+                        label: (ctx) => `R$ ${ctx.parsed.y.toFixed(2)}`
+                    }
+                }
+            },
+            scales: {
+                x: { ticks: { color: '#8899aa', maxTicksLimit: 12, maxRotation: 0 }, grid: { color: '#1e3a5f' } },
+                y: { ticks: { color: '#8899aa', callback: v => 'R$ ' + v.toFixed(2) }, grid: { color: '#1e3a5f' } },
+            }
+        }
+    });
+
+    // KPI detail under chart
+    const detail = document.createElement('div');
+    detail.className = 'kpi-detail';
+    detail.innerHTML = `
+        <div class="kpi-item"><span class="kpi-label">Máximo</span><span class="kpi-value">${formatBRL(kpi.max)}</span></div>
+        <div class="kpi-item"><span class="kpi-label">Mínimo</span><span class="kpi-value">${formatBRL(kpi.min)}</span></div>
+        <div class="kpi-item"><span class="kpi-label">Média</span><span class="kpi-value">${formatBRL(kpi.avg)}</span></div>
+        <div class="kpi-item"><span class="kpi-label">Variação</span><span class="kpi-value ${kpi.changePct >= 0 ? 'positive' : 'negative'}">${sign}${kpi.changePct.toFixed(2)}%</span></div>
+        <div class="kpi-item"><span class="kpi-label">Volatilidade</span><span class="kpi-value">${kpi.stddev.toFixed(2)}% diária</span></div>
+    `;
+    container.appendChild(detail);
+}
+
+function renderComparison() {
+    const datasets = [];
+    TICKERS.forEach(t => {
+        const data = stockData[t];
+        if (!data?.length) return;
+        const first = data[0].close;
+        points = data.map(d => ((d.close - first) / first) * 100);
+        datasets.push({
+            label: NAMES[t],
+            data: points,
+            borderColor: COLORS[t].line,
+            backgroundColor: COLORS[t].bg,
+            borderWidth: 2,
+            pointRadius: 0,
+            pointHoverRadius: 3,
+            fill: false,
+            tension: 0.1,
+        });
+    });
+
+    const labels = stockData[TICKERS[0]]?.map(d => d.date) || [];
+    const ctx = document.getElementById('comparison-chart').getContext('2d');
+    charts.comparison = new Chart(ctx, {
+        type: 'line',
+        data: { labels, datasets },
+        options: {
+            responsive: true,
+            plugins: {
+                legend: { labels: { color: '#ccc', font: { size: 13 } } },
+                tooltip: {
+                    callbacks: {
+                        label: (ctx) => `${ctx.dataset.label}: ${ctx.parsed.y.toFixed(2)}%`
+                    }
+                }
+            },
+            scales: {
+                x: { ticks: { color: '#8899aa', maxTicksLimit: 12, maxRotation: 0 }, grid: { color: '#1e3a5f' } },
+                y: { ticks: { color: '#8899aa', callback: v => v.toFixed(1) + '%' }, grid: { color: '#1e3a5f' } },
+            }
+        }
+    });
+}
+
+async function fetchAll(refresh = false) {
+    setStatus('Buscar dados...', 'loading');
+    const promises = TICKERS.map(async t => {
+        const url = refresh ? `/api/stocks/${t}?refresh=true` : `/api/stocks/${t}`;
+        const res = await fetch(url);
+        if (!res.ok) {
+            const err = await res.json();
+            throw new Error(`${NAMES[t]}: ${err.error}`);
+        }
+        return [t, await res.json()];
+    });
+
+    try {
+        const results = await Promise.all(promises);
+        stockData = {};
+        results.forEach(([t, data]) => {
+            stockData[t] = data;
+        });
+        setStatus(`Dados carregados — última atualização: ${new Date().toLocaleTimeString('pt-BR')}`, 'success');
+    } catch (err) {
+        setStatus(`Erro: ${err.message}`, 'error');
+        throw err;
+    }
+}
+
+function renderAll() {
+    renderKPICards();
+    TICKERS.forEach(t => renderStockChart(t));
+    renderComparison();
+}
+
+document.getElementById('refresh-btn').addEventListener('click', async () => {
+    const btn = document.getElementById('refresh-btn');
+    btn.disabled = true;
+    Object.values(charts).forEach(c => c.destroy());
+    charts = {};
+    document.getElementById('stock-charts').innerHTML = '';
+
+    try {
+        await fetchAll(true);
+        renderAll();
+    } catch (e) {
+        console.error(e);
+    } finally {
+        btn.disabled = false;
+    }
+});
+
+// Initial load
+
+// Indices page functionality
+const INDICES = ['selic', 'ipca'];
+const INDICES_COLORS = {
+    selic: { line: '#ff9800', bg: 'rgba(255,152,0,0.15)' },
+    ipca: { line: '#9c27b0', bg: 'rgba(156,39,176,0.15)' }
+};
+const INDICES_NAMES = { selic: 'SELIC', ipca: 'IPCA' };
+
+let indicesData = {};
+let indicesCharts = {};
+
+async function fetchIndicesData(refresh = false) {
+    setStatus('Buscando dados dos índices...', 'loading');
+
+    // Simulate fetching indices data
+    // In a real scenario, you would fetch from an API
+    const mockData = {
+        selic: 10.75,
+        ipca: 4.8,
+        history: [
+            { date: '2025-01', selic: 10.5, ipca: 4.2 },
+            { date: '2025-02', selic: 10.6, ipca: 4.3 },
+            { date: '2025-03', selic: 10.8, ipca: 4.5 },
+            { date: '2025-04', selic: 10.7, ipca: 4.6 },
+            { date: '2025-05', selic: 10.75, ipca: 4.7 },
+            { date: '2025-06', selic: 10.7, ipca: 4.8 },
+            { date: '2025-07', selic: 10.75, ipca: 4.8 },
+            { date: '2025-08', selic: 10.75, ipca: 4.8 },
+            { date: '2025-09', selic: 10.75, ipca: 4.8 },
+            { date: '2025-10', selic: 10.75, ipca: 4.8 },
+            { date: '2025-11', selic: 10.75, ipca: 4.8 },
+            { date: '2025-12', selic: 10.75, ipca: 4.8 }
+        ]
+    };
+
+    try {
+        // Simulate API call delay
+        await new Promise(resolve => setTimeout(resolve, 500));
+
+        indicesData = mockData;
+        setStatus(`Dados dos índices carregados — última atualização: ${new Date().toLocaleTimeString('pt-BR')}`, 'success');
+    } catch (err) {
+        setStatus(`Erro: ${err.message}`, 'error');
+        throw err;
+    }
+}
+
+function renderIndicesKPICards() {
+    const bar = document.getElementById('indices-kpi-bar');
+    bar.innerHTML = '';
+
+    Object.entries(indicesData).forEach(([key, value]) => {
+        if (key === 'history') return;
+
+        const card = document.createElement('div');
+        card.className = 'kpi-card';
+        const sign = value >= 0 ? '+' : '';
+        card.innerHTML = `
+            <div class="ticker" style="color:${INDICES_COLORS[key].line}">${INDICES_NAMES[key]}</div>
+            <div class="price">${value.toFixed(2)}%</div>
+        `;
+        bar.appendChild(card);
+    });
+}
+
+function renderIndicesCharts() {
+    const container = document.getElementById('indices-charts');
+    container.innerHTML = '';
+
+    Object.entries(INDICES_COLORS).forEach(([key, colors]) => {
+        const div = document.createElement('div');
+        div.className = 'chart-card';
+        div.innerHTML = `<canvas id="${key}-chart"></canvas>`;
+        container.appendChild(div);
+
+        const ctx = document.getElementById(`${key}-chart`).getContext('2d');
+        indicesCharts[`${key}-chart`] = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: indicesData.history.map(d => d.date),
+                datasets: [{
+                    label: `${INDICES_NAMES[key]} — ${key.toUpperCase()}`,
+                    data: indicesData.history.map(d => d[key]),
+                    borderColor: colors.line,
+                    backgroundColor: colors.bg,
+                    borderWidth: 2,
+                    pointRadius: 0,
+                    pointHoverRadius: 4,
+                    fill: true,
+                    tension: 0.1,
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: {
+                    legend: { labels: { color: '#ccc', font: { size: 12 } } },
+                    tooltip: {
+                        callbacks: {
+                            label: (ctx) => `${ctx.dataset.label}: ${ctx.parsed.y.toFixed(2)}%`
+                        }
+                    }
+                },
+                scales: {
+                    x: {
+                        ticks: { color: '#8899aa', maxTicksLimit: 12, maxRotation: 0 },
+                        grid: { color: '#1e3a5f' }
+                    },
+                    y: {
+                        ticks: { color: '#8899aa', callback: v => v.toFixed(2) + '%' },
+                        grid: { color: '#1e3a5f' }
+                    },
+                }
+            }
+        });
+    });
+}
+
+function renderIndicesComparison() {
+    const container = document.getElementById('indices-comparison-chart');
+    const ctx = container.getContext('2d');
+
+    const datasets = Object.entries(INDICES_COLORS).map(([key, colors]) => ({
+        label: INDICES_NAMES[key],
+        data: indicesData.history.map(d => d[key]),
+        borderColor: colors.line,
+        backgroundColor: colors.bg,
+        borderWidth: 2,
+        pointRadius: 0,
+        pointHoverRadius: 3,
+        fill: false,
+        tension: 0.1,
+    }));
+
+    new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: indicesData.history.map(d => d.date),
+            datasets
+        },
+        options: {
+            responsive: true,
+            plugins: {
+                legend: { labels: { color: '#ccc', font: { size: 13 } } },
+                tooltip: {
+                    callbacks: {
+                        label: (ctx) => `${ctx.dataset.label}: ${ctx.parsed.y.toFixed(2)}%`
+                    }
+                }
+            },
+            scales: {
+                x: { ticks: { color: '#8899aa', maxTicksLimit: 12, maxRotation: 0 }, grid: { color: '#1e3a5f' } },
+                y: { ticks: { color: '#8899aa', callback: v => v.toFixed(1) + '%' }, grid: { color: '#1e3a5f' } },
+            }
+        }
+    });
+}
+
+async function renderIndicesAll() {
+    await fetchIndicesData();
+    renderIndicesKPICards();
+    renderIndicesCharts();
+    renderIndicesComparison();
+}
+
+// Show indices page
+document.addEventListener('DOMContentLoaded', function() {
+    // Set up indices link handler
+    const indicesLink = document.querySelector('a[href="/indices"]');
+    if (indicesLink) {
+        indicesLink.addEventListener('click', function(e) {
+            e.preventDefault();
+            document.getElementById('indices-page').style.display = 'block';
+            // Scroll to top
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        });
+    }
+});
+
+// Initialize indices data on page load
+renderIndicesAll();
+fetchAll().then(renderAll).catch(e => console.error(e));
+</script>
+
+<div id="indices-page" class="container" style="display:none;">
+    <div class="section-title">Índices - Selic e IPCA</div>
+
+    <!-- KPI summary cards for indices -->
+    <div class="kpi-bar" id="indices-kpi-bar"></div>
+
+    <!-- Individual indices charts -->
+    <div class="section-title">Análise dos Índices</div>
+    <div class="chart-grid" id="indices-charts"></div>
+
+    <!-- Performance comparison -->
+    <div class="section-title">Performance Comparada (% do período)</div>
+    <div class="chart-grid">
+        <div class="chart-card full">
+            <canvas id="indices-comparison-chart"></canvas>
+        </div>
+    </div>
+
+</body>
+</html>

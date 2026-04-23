@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(//workspace/calc-node/**)",
+      "Bash(echo '')",
+      "Bash(echo '</body>')",
+      "Bash(echo '</html>')"
+    ]
+  }
+}
