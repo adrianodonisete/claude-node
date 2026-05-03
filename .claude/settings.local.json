@@ -4,7 +4,10 @@
       "Read(//workspace/calc-node/**)",
       "Bash(echo '')",
       "Bash(echo '</body>')",
-      "Bash(echo '</html>')"
+      "Bash(echo '</html>')",
+      "Bash(node server.js)",
+      "Bash(curl -s http://localhost:3000/api/forex/brl)",
+      "Bash(curl -s http://localhost:3000/usd_brl.html)"
     ]
   }
 }
