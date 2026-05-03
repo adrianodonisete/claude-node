@@ -20,6 +20,28 @@ const TICKERS = {
 const PERIOD_START = Math.floor(new Date('2025-01-01').getTime() / 1000);
 const PERIOD_END = Math.floor(new Date('2025-12-31T23:59:59').getTime() / 1000);
 
+const FOREX_PAIRS = {
+  brl: { symbol: 'BRL=X', name: 'USD/BRL', displayName: 'Dólar/Real' },
+};
+
+// Simple in-memory cache for forex rates (5-minute TTL)
+const forexCache = new Map();
+const FOREX_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+
+function getCachedForex(pair) {
+  const cached = forexCache.get(pair);
+  if (!cached) return null;
+  if (Date.now() - cached.timestamp > FOREX_CACHE_TTL) {
+    forexCache.delete(pair);
+    return null;
+  }
+  return cached.data;
+}
+
+function setCachedForex(pair, data) {
+  forexCache.set(pair, { data, timestamp: Date.now() });
+}
+
 function getDataPath(ticker) {
   return path.join(DATA_DIR, `${ticker}.json`);
 }
@@ -83,6 +105,73 @@ app.get('/api/stocks/:ticker', async (req, res) => {
       const cached = JSON.parse(fs.readFileSync(getDataPath(ticker), 'utf8'));
       return res.json(cached);
     }
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get('/api/forex/:pair', async (req, res) => {
+  const { pair } = req.params;
+  const refresh = req.query.refresh === 'true';
+  const info = FOREX_PAIRS[pair];
+
+  if (!info) {
+    return res.status(404).json({
+      error: `Forex pair not found. Available: ${Object.keys(FOREX_PAIRS).join(', ')}`,
+    });
+  }
+
+  try {
+    // Check in-memory cache first
+    if (!refresh) {
+      const cached = getCachedForex(pair);
+      if (cached) {
+        return res.json(cached);
+      }
+    }
+
+    // Fetch from Yahoo Finance using existing fetchYahoo function
+    const data = await fetchYahoo(info.symbol);
+
+    if (!data || data.length === 0) {
+      throw new Error('No data returned from Yahoo Finance');
+    }
+
+    // Get the most recent data point
+    const latest = data[data.length - 1];
+
+    // Calculate daily change if we have at least 2 data points
+    let change = null;
+    let changePct = null;
+    if (data.length >= 2) {
+      const previous = data[data.length - 2];
+      change = latest.close - previous.close;
+      changePct = (change / previous.close) * 100;
+    }
+
+    const result = {
+      pair: info.name,
+      displayName: info.displayName,
+      rate: latest.close,
+      date: latest.date,
+      timestamp: new Date().toISOString(),
+      change: change ? +change.toFixed(4) : null,
+      changePct: changePct ? +changePct.toFixed(2) : null,
+    };
+
+    // Cache the result
+    setCachedForex(pair, result);
+
+    res.json(result);
+  } catch (err) {
+    console.error(`Error fetching forex data for ${pair}:`, err.message);
+
+    // Try to return cached data even if expired (stale data better than no data)
+    const staleCache = forexCache.get(pair);
+    if (staleCache) {
+      console.log('Returning stale cached forex data');
+      return res.json({ ...staleCache.data, stale: true });
+    }
+
     res.status(500).json({ error: err.message });
   }
 });

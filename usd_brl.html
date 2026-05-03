@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>USD/BRL - IBov Analyser</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+            background: #0f1923;
+            color: #e0e0e0;
+            min-height: 100vh;
+        }
+
+        .menu {
+            background: #0d1b2a;
+            padding: 10px 24px;
+            display: flex;
+            gap: 20px;
+            border-bottom: 1px solid #1e3a5f;
+        }
+
+        .menu-link {
+            color: #4fc3f7;
+            text-decoration: none;
+            font-size: 14px;
+            font-weight: 500;
+            transition: color 0.2s;
+        }
+
+        .menu-link:hover {
+            color: #81d4fa;
+            text-decoration: underline;
+        }
+
+        header {
+            background: #152232;
+            padding: 16px 24px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            border-bottom: 1px solid #1e3a5f;
+            flex-wrap: wrap;
+            gap: 12px;
+        }
+
+        header h1 {
+            font-size: 22px;
+            font-weight: 600;
+            color: #ffffff;
+        }
+
+        header h1 span { color: #4fc3f7; }
+
+        #refresh-btn {
+            padding: 8px 18px;
+            background: #1565c0;
+            color: #fff;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            transition: background 0.2s;
+        }
+
+        #refresh-btn:hover { background: #0d47a1; }
+        #refresh-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .exchange-container {
+            max-width: 600px;
+            margin: 40px auto;
+            text-align: center;
+        }
+
+        .kpi-card {
+            background: #152232;
+            border: 1px solid #1e3a5f;
+            border-radius: 8px;
+            padding: 32px 24px;
+            text-align: center;
+        }
+
+        .kpi-card .ticker {
+            font-size: 16px;
+            font-weight: 600;
+            margin-bottom: 12px;
+            color: #4fc3f7;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .kpi-card .price {
+            font-size: 56px;
+            font-weight: 700;
+            margin: 16px 0;
+            color: #ffffff;
+        }
+
+        .kpi-card .change {
+            font-size: 18px;
+            margin-top: 16px;
+            font-weight: 600;
+        }
+
+        .change.positive { color: #4caf50; }
+        .change.negative { color: #f44336; }
+        .change.neutral { color: #8899aa; }
+
+        .update-info {
+            font-size: 12px;
+            color: #8899aa;
+            margin-top: 16px;
+            padding-top: 16px;
+            border-top: 1px solid #1e3a5f;
+        }
+
+        .info-text {
+            max-width: 600px;
+            margin: 24px auto;
+            padding: 16px;
+            background: #152232;
+            border: 1px solid #1e3a5f;
+            border-radius: 8px;
+            font-size: 14px;
+            line-height: 1.6;
+            color: #b0c4de;
+        }
+
+        #status-bar {
+            text-align: center;
+            padding: 8px;
+            font-size: 13px;
+            color: #8899aa;
+        }
+
+        #status-bar.loading { color: #4fc3f7; }
+        #status-bar.error { color: #f44336; }
+        #status-bar.success { color: #4caf50; }
+        #status-bar.stale { color: #ff9800; }
+
+        .stale-warning {
+            display: none;
+            background: #ff9800;
+            color: #000;
+            padding: 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            margin-top: 12px;
+        }
+
+        .stale-warning.show { display: block; }
+
+        @media (max-width: 600px) {
+            header { padding: 12px 14px; }
+            header h1 { font-size: 18px; }
+            .kpi-card .price { font-size: 40px; }
+            .exchange-container { margin: 20px auto; }
+        }
+    </style>
+</head>
+<body>
+
+<nav class="menu">
+    <a href="/" class="menu-link">Home</a>
+    <a href="/usd_brl.html" class="menu-link">USD/BRL</a>
+    <a href="/indices" class="menu-link">Índices</a>
+    <a href="https://finance.yahoo.com" target="_blank" class="menu-link">Yahoo Finance</a>
+    <a href="https://statusinvest.com.br/" target="_blank" class="menu-link">Status Invest</a>
+</nav>
+
+<header>
+    <h1><span>IBov</span> Analyser &mdash; Câmbio</h1>
+    <button id="refresh-btn">Atualizar dados</button>
+</header>
+
+<div id="status-bar">Carregando cotação...</div>
+
+<div class="container">
+    <div class="exchange-container">
+        <div class="kpi-card">
+            <div class="ticker">USD/BRL</div>
+            <div class="price" id="exchange-rate">R$ --,--</div>
+            <div class="change" id="change">--</div>
+            <div class="update-info">
+                Última atualização: <span id="update-date">--</span>
+            </div>
+            <div class="stale-warning" id="stale-warning">
+                ⚠ Dados em cache (cotação pode estar desatualizada)
+            </div>
+        </div>
+
+        <div class="info-text">
+            <strong>Dólar Americano (USD) para Real Brasileiro (BRL)</strong><br>
+            Taxa de câmbio atual do dólar em relação ao real, atualizada diariamente. Use este dados como referência para suas operações de câmbio.
+        </div>
+    </div>
+</div>
+
+<script>
+const statusBar = document.getElementById('status-bar');
+const exchangeRateEl = document.getElementById('exchange-rate');
+const changeEl = document.getElementById('change');
+const updateDateEl = document.getElementById('update-date');
+const staleWarningEl = document.getElementById('stale-warning');
+const refreshBtn = document.getElementById('refresh-btn');
+
+function setStatus(msg, type = '') {
+    statusBar.textContent = msg;
+    statusBar.className = type;
+}
+
+function formatBRL(n) {
+    return `R$ ${n.toFixed(2).replace('.', ',')}`;
+}
+
+function formatDate(dateStr) {
+    const date = new Date(dateStr + 'T00:00:00');
+    return date.toLocaleDateString('pt-BR', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric'
+    });
+}
+
+function displayRate(data) {
+    const formatted = formatBRL(data.rate);
+    exchangeRateEl.textContent = formatted;
+    updateDateEl.textContent = formatDate(data.date);
+
+    // Display change
+    if (data.change !== null && data.changePct !== null) {
+        const sign = data.change >= 0 ? '+' : '';
+        const changeClass = data.change > 0 ? 'positive' : data.change < 0 ? 'negative' : 'neutral';
+        changeEl.className = `change ${changeClass}`;
+        changeEl.textContent = `${sign}${data.change.toFixed(4)} (${sign}${data.changePct.toFixed(2)}%) hoje`;
+    } else {
+        changeEl.className = 'change neutral';
+        changeEl.textContent = 'Sem dados de variação';
+    }
+
+    // Show stale warning if applicable
+    if (data.stale) {
+        staleWarningEl.classList.add('show');
+        setStatus('Dados em cache (cotação pode estar desatualizada)', 'stale');
+    } else {
+        staleWarningEl.classList.remove('show');
+        setStatus(`Cotação atualizada em ${formatDate(data.date)}`, 'success');
+    }
+}
+
+async function fetchExchangeRate(refresh = false) {
+    setStatus('Buscando cotação...', 'loading');
+    const url = refresh ? '/api/forex/brl?refresh=true' : '/api/forex/brl';
+
+    try {
+        const res = await fetch(url);
+        if (!res.ok) {
+            const err = await res.json();
+            throw new Error(err.error || 'Erro ao buscar cotação');
+        }
+        const data = await res.json();
+        displayRate(data);
+    } catch (err) {
+        setStatus(`Erro: ${err.message}`, 'error');
+        exchangeRateEl.textContent = 'Erro';
+        changeEl.textContent = err.message;
+    }
+}
+
+refreshBtn.addEventListener('click', async () => {
+    refreshBtn.disabled = true;
+    try {
+        await fetchExchangeRate(true);
+    } finally {
+        refreshBtn.disabled = false;
+    }
+});
+
+// Initial load
+fetchExchangeRate();
+</script>
+
+</body>
+</html>
