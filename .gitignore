@@ -25,5 +25,7 @@ dist-ssr
 
 # Claude Code files
 .claude/mcp.json
-.claude/settings.local.json
-.claude/settings2.local.json
+.claude/*.local.json
+
+# Husky
+.husky/

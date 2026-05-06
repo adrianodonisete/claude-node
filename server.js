@@ -12,7 +12,11 @@ if (!fs.existsSync(DATA_DIR)) {
 
 const TICKERS = {
   petr3: { symbol: 'PETR3.SA', name: 'PETR3', displayName: 'Petrobras PN' },
-  itub3: { symbol: 'ITUB3.SA', name: 'ITUB3', displayName: 'Ita\xfa Unibanco ON' },
+  itub3: {
+    symbol: 'ITUB3.SA',
+    name: 'ITUB3',
+    displayName: 'Ita\xfa Unibanco ON',
+  },
   vale3: { symbol: 'VALE3.SA', name: 'VALE3', displayName: 'Vale ON' },
 };
 
@@ -86,7 +90,9 @@ app.get('/api/stocks/:ticker', async (req, res) => {
   const info = TICKERS[ticker];
 
   if (!info) {
-    return res.status(404).json({ error: `Ticker not found. Available: ${Object.keys(TICKERS).join(', ')}` });
+    return res.status(404).json({
+      error: `Ticker not found. Available: ${Object.keys(TICKERS).join(', ')}`,
+    });
   }
 
   try {
@@ -165,11 +171,12 @@ app.get('/api/forex/:pair', async (req, res) => {
   } catch (err) {
     console.error(`Error fetching forex data for ${pair}:`, err.message);
 
-    // Try to return cached data even if expired (stale data better than no data)
+    // Try to return cached data even if expired
     const staleCache = forexCache.get(pair);
     if (staleCache) {
       console.log('Returning stale cached forex data');
-      return res.json({ ...staleCache.data, stale: true });
+      res.json(Object.assign({}, staleCache.data, { stale: true }));
+      return;
     }
 
     res.status(500).json({ error: err.message });
@@ -197,8 +204,8 @@ app.get('/api/indices', async (_req, res) => {
       { date: '2025-09', selic: 10.75, ipca: 4.8 },
       { date: '2025-10', selic: 10.75, ipca: 4.8 },
       { date: '2025-11', selic: 10.75, ipca: 4.8 },
-      { date: '2025-12', selic: 10.75, ipca: 4.8 }
-    ]
+      { date: '2025-12', selic: 10.75, ipca: 4.8 },
+    ],
   };
   res.json(mockData);
 });
@@ -207,6 +214,10 @@ app.use(express.static(__dirname));
 
 app.listen(PORT, () => {
   console.log(`IBov Analyser running at http://localhost:${PORT}`);
-  console.log(`Tickers available: ${Object.values(TICKERS).map((t) => t.name).join(', ')}`);
+  console.log(
+    `Tickers available: ${Object.values(TICKERS)
+      .map((t) => t.name)
+      .join(', ')}`,
+  );
   console.log(`Data directory: ${DATA_DIR}`);
 });

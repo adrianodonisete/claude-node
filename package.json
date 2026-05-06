@@ -5,14 +5,40 @@
   "main": "server.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "dev": "nodemon server.js"
+    "dev": "nodemon server.js",
+    "prepare": "husky install",
+    "lint": "eslint **/*.js **/*.html",
+    "format": "prettier --write **/*.js **/*.html",
+    "quality-check": "node scripts/pre-commit.js",
+    "pre-commit": "npx lint-staged"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "type": "commonjs",
+  "lint-staged": {
+    "**/*.js": [
+      "eslint --fix",
+      "prettier --write",
+      "git add"
+    ],
+    "**/*.html": [
+      "prettier --write",
+      "git add"
+    ]
+  },
   "devDependencies": {
-    "nodemon": "^3.1.0"
+    "eslint": "^8.57.1",
+    "eslint-config-airbnb-base": "^15.0.0",
+    "eslint-plugin-complexity": "^1.0.2",
+    "eslint-plugin-import": "^2.32.0",
+    "eslint-plugin-node": "^11.1.0",
+    "eslint-plugin-prettier": "^5.5.5",
+    "eslint-plugin-security": "^4.0.0",
+    "husky": "^9.1.7",
+    "lint-staged": "^16.4.0",
+    "nodemon": "^3.1.0",
+    "prettier": "^3.8.3"
   },
   "dependencies": {
     "express": "^5.2.1"

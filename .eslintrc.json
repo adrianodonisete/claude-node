@@ -1,0 +1,22 @@
+{
+  "root": true,
+  "env": {
+    "node": true,
+    "es2022": true
+  },
+  "parserOptions": {
+    "ecmaVersion": 2022,
+    "sourceType": "module"
+  },
+  "rules": {
+    "no-console": "off",
+    "strict": ["error", "global"],
+    "semi": ["error", "always"],
+    "quotes": ["error", "single"],
+    "comma-dangle": ["error", "always-multiline"],
+    "no-var": "error",
+    "prefer-const": "error",
+    "eqeqeq": ["error", "always"],
+    "no-unused-vars": ["warn", { "argsIgnorePattern": "^_" }]
+  }
+}
