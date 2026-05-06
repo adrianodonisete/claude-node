@@ -23,6 +23,7 @@ dist-ssr
 *.sln
 *.sw?
 
-# Claude Code
+# Claude Code files
 .claude/mcp.json
 .claude/settings.local.json
+.claude/settings2.local.json
